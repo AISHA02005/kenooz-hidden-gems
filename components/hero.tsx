@@ -1,7 +1,9 @@
 export function Hero() {
   return (
-    <section id="about" className="mx-auto max-w-6xl px-6 py-20 md:py-32">
-      <p className="text-sm font-medium uppercase tracking-widest text-accent">Discover authentic Egypt</p>
+    <section id="about" className="sunset-glow">
+      <div className="mx-auto max-w-6xl px-6 py-20 md:py-32">
+      <p className="flex items-center gap-3 text-sm font-semibold uppercase tracking-widest text-primary-strong">
+        <span aria-hidden="true" className="h-px w-8 bg-accent" />Discover authentic Egypt</p>
       <h1 className="mt-4 max-w-3xl text-balance font-serif text-4xl font-semibold leading-tight md:text-6xl">
         Kenooz – Hidden Gems of Egypt
       </h1>
@@ -13,16 +15,17 @@ export function Hero() {
       <div className="mt-10 flex flex-wrap gap-4">
         <a
           href="#explore"
-          className="rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+          className="rounded-md bg-primary-strong px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-colors hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Start exploring
         </a>
         <a
           href="#explore"
-          className="rounded-md border border-border px-6 py-3 text-sm font-medium hover:bg-card"
+          className="rounded-md border border-primary/30 bg-card/60 px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-secondary hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Learn more
         </a>
+      </div>
       </div>
     </section>
   );
