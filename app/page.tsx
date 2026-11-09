@@ -1,17 +1,16 @@
-import { SiteHeader } from "@/components/site-header";
+import { SiteShell } from "@/components/site-shell";
 import { Hero } from "@/components/hero";
 import { Features } from "@/components/features";
-import { SiteFooter } from "@/components/site-footer";
+import { FeaturedPlaces } from "@/components/featured-places";
+import { CallToAction } from "@/components/call-to-action";
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      <main className="flex-1">
-        <Hero />
-        <Features />
-      </main>
-      <SiteFooter />
-    </div>
+    <SiteShell>
+      <Hero />
+      <Features />
+      <FeaturedPlaces />
+      <CallToAction />
+    </SiteShell>
   );
 }

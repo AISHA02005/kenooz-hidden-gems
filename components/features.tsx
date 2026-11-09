@@ -15,9 +15,13 @@ const features = [
 
 export function Features() {
   return (
-    <section id="explore" className="border-t border-border bg-gradient-to-b from-surface to-background">
+    <section className="border-t border-border bg-gradient-to-b from-surface to-background">
       <div className="mx-auto max-w-6xl px-6 py-16 md:py-24">
-        <h2 className="font-serif text-3xl font-semibold">What you can do with Kenooz</h2>
+        <h2 className="font-serif text-3xl font-semibold md:text-4xl">Discover Hidden Gems</h2>
+        <p className="mt-4 max-w-2xl leading-relaxed text-muted">
+          Kenooz is a community guide to the Egypt most visitors never see. Every place is shared by
+          someone who has been there, so you can travel with confidence and curiosity.
+        </p>
         <ul className="mt-10 grid gap-6 md:grid-cols-3">
           {features.map((feature) => (
             <li
