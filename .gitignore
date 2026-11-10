@@ -1,0 +1,42 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+
+# env files
+.env*
+!.env.example
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
+
+# python / backend
+backend/.venv/
+backend/venv/
+backend/env/
+**/__pycache__/
+*.py[cod]
+*$py.class
+backend/*.db
+backend/*.sqlite*
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/.pytest_cache/
+.pytest_cache/
+*.egg-info/
