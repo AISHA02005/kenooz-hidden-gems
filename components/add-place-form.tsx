@@ -2,27 +2,44 @@
 
 import { useEffect, useState } from "react";
 import { buttonStyles, fieldStyles } from "@/components/ui";
-import { CATEGORIES, GOVERNORATES } from "@/lib/places";
+import { CATEGORIES, GOVERNORATES, type Place } from "@/lib/places";
 
-type FieldName = "name" | "category" | "governorate" | "image";
-type Errors = Partial<Record<FieldName, string>>;
+type FieldName = "name" | "category" | "governorate" | "image" | "description";
+type Errors = Partial<Record<FieldName, string>> & { general?: string };
 
 const MAX_IMAGE_MB = 5;
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/jpg"];
 
 function validate(form: FormData): Errors {
   const errors: Errors = {};
   const name = String(form.get("name") ?? "").trim();
+  const description = String(form.get("description") ?? "").trim();
   const image = form.get("image");
 
-  if (!name) errors.name = "Please enter the place name.";
-  else if (name.length < 3) errors.name = "Place name must be at least 3 characters.";
-  if (!form.get("category")) errors.category = "Please choose a category.";
-  if (!form.get("governorate")) errors.governorate = "Please choose a governorate.";
+  if (!name) {
+    errors.name = "Please enter the place name.";
+  } else if (name.length < 3) {
+    errors.name = "Place name must be at least 3 characters.";
+  } else if (name.length > 100) {
+    errors.name = "Place name must not exceed 100 characters.";
+  }
+
+  if (!form.get("category")) {
+    errors.category = "Please choose a category.";
+  }
+
+  if (!form.get("governorate")) {
+    errors.governorate = "Please choose a governorate.";
+  }
+
+  if (description.length > 500) {
+    errors.description = "Description must not exceed 500 characters.";
+  }
 
   if (!(image instanceof File) || image.size === 0) {
     errors.image = "Please upload an image of the place.";
-  } else if (!image.type.startsWith("image/")) {
-    errors.image = "The file must be an image (JPG, PNG, or WebP).";
+  } else if (!ALLOWED_MIME_TYPES.includes(image.type.toLowerCase())) {
+    errors.image = "The file must be an image (JPG or PNG only).";
   } else if (image.size > MAX_IMAGE_MB * 1024 * 1024) {
     errors.image = `Image must be smaller than ${MAX_IMAGE_MB} MB.`;
   }
@@ -41,8 +58,9 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 
 export function AddPlaceForm() {
   const [errors, setErrors] = useState<Errors>({});
-  const [submittedName, setSubmittedName] = useState<string | null>(null);
+  const [submittedPlace, setSubmittedPlace] = useState<Place | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -52,33 +70,80 @@ export function AddPlaceForm() {
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    setPreview(file && file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
-    setErrors((prev) => ({ ...prev, image: undefined }));
+    if (file && ALLOWED_MIME_TYPES.includes(file.type.toLowerCase())) {
+      setPreview(URL.createObjectURL(file));
+    } else {
+      setPreview(null);
+    }
+    setErrors((prev) => ({ ...prev, image: undefined, general: undefined }));
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
-    const nextErrors = validate(data);
-    setErrors(nextErrors);
 
-    const firstInvalid = Object.keys(nextErrors)[0];
-    if (firstInvalid) {
-      formEl.querySelector<HTMLElement>(`[name="${firstInvalid}"]`)?.focus();
+    // Client-side pre-validation
+    const clientErrors = validate(data);
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      const firstInvalid = Object.keys(clientErrors)[0];
+      if (firstInvalid) {
+        formEl.querySelector<HTMLElement>(`[name="${firstInvalid}"]`)?.focus();
+      }
       return;
     }
 
-    setSubmittedName(String(data.get("name")).trim());
-    formEl.reset();
-    setPreview(null);
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      // POST to /api/places without manual Content-Type header so browser sets multipart boundary
+      const res = await fetch("/api/places", {
+        method: "POST",
+        body: data,
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const responseData = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 400 && responseData.details) {
+          setErrors(responseData.details);
+          const firstInvalid = Object.keys(responseData.details)[0];
+          if (firstInvalid) {
+            formEl.querySelector<HTMLElement>(`[name="${firstInvalid}"]`)?.focus();
+          }
+        } else {
+          setErrors({
+            general: responseData.error || responseData.message || "Failed to submit place. Please try again.",
+          });
+        }
+        return;
+      }
+
+      // Success: place is created with status 'pending'
+      setSubmittedPlace(responseData.place);
+      formEl.reset();
+      setPreview(null);
+    } catch {
+      setErrors({
+        general: "Unable to reach the server. Please verify that the Flask backend is running on http://127.0.0.1:5000.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function clearError(field: FieldName) {
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+    if (errors[field] || errors.general) {
+      setErrors((prev) => ({ ...prev, [field]: undefined, general: undefined }));
+    }
   }
 
-  if (submittedName) {
+  if (submittedPlace) {
     return (
       <div
         role="status"
@@ -92,12 +157,13 @@ export function AddPlaceForm() {
         </div>
         <h2 className="mt-6 font-serif text-3xl font-semibold">Thank you for sharing!</h2>
         <p className="mx-auto mt-3 max-w-md leading-relaxed text-muted">
-          <span className="font-semibold text-foreground">{submittedName}</span> has been submitted
-          for review. Once approved, it will appear on the Explore page for other travelers.
+          <span className="font-semibold text-foreground">{submittedPlace.name}</span> has been submitted
+          for review. It is currently <span className="font-semibold text-primary-strong">pending approval</span> and
+          will appear on the Explore page once approved by our moderation team.
         </p>
         <button
           type="button"
-          onClick={() => setSubmittedName(null)}
+          onClick={() => setSubmittedPlace(null)}
           className={`${buttonStyles.primary} mt-8`}
         >
           Add another place
@@ -112,6 +178,15 @@ export function AddPlaceForm() {
       onSubmit={handleSubmit}
       className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6 shadow-sm shadow-primary/5 md:p-8"
     >
+      {errors.general && (
+        <div
+          role="alert"
+          className="rounded-md border border-primary-strong/40 bg-primary/10 p-4 text-sm text-primary-strong"
+        >
+          {errors.general}
+        </div>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="name" className="text-sm font-medium">
           Place name <span className="text-primary-strong">*</span>
@@ -126,6 +201,7 @@ export function AddPlaceForm() {
           aria-invalid={Boolean(errors.name)}
           aria-describedby={errors.name ? "name-error" : undefined}
           onChange={() => clearError("name")}
+          disabled={isSubmitting}
           className={fieldStyles}
         />
         <FieldError id="name-error" message={errors.name} />
@@ -144,6 +220,7 @@ export function AddPlaceForm() {
             aria-invalid={Boolean(errors.category)}
             aria-describedby={errors.category ? "category-error" : undefined}
             onChange={() => clearError("category")}
+            disabled={isSubmitting}
             className={fieldStyles}
           >
             <option value="" disabled>
@@ -170,6 +247,7 @@ export function AddPlaceForm() {
             aria-invalid={Boolean(errors.governorate)}
             aria-describedby={errors.governorate ? "governorate-error" : undefined}
             onChange={() => clearError("governorate")}
+            disabled={isSubmitting}
             className={fieldStyles}
           >
             <option value="" disabled>
@@ -195,8 +273,11 @@ export function AddPlaceForm() {
           rows={4}
           maxLength={500}
           placeholder="What makes this place special? Any tips for visitors?"
+          onChange={() => clearError("description")}
+          disabled={isSubmitting}
           className={`${fieldStyles} resize-y`}
         />
+        <FieldError id="description-error" message={errors.description} />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -207,15 +288,16 @@ export function AddPlaceForm() {
           id="image"
           name="image"
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png"
           required
           aria-invalid={Boolean(errors.image)}
           aria-describedby={errors.image ? "image-error image-hint" : "image-hint"}
           onChange={handleImageChange}
+          disabled={isSubmitting}
           className={`${fieldStyles} cursor-pointer file:mr-4 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-primary-strong hover:file:bg-primary/15`}
         />
         <p id="image-hint" className="text-xs text-muted">
-          JPG, PNG, or WebP up to {MAX_IMAGE_MB} MB.
+          JPG or PNG up to {MAX_IMAGE_MB} MB.
         </p>
         <FieldError id="image-error" message={errors.image} />
         {preview && (
@@ -232,8 +314,12 @@ export function AddPlaceForm() {
         <p className="text-xs text-muted">
           <span className="text-primary-strong">*</span> Required fields
         </p>
-        <button type="submit" className={buttonStyles.primary}>
-          Submit place
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className={`${buttonStyles.primary} disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          {isSubmitting ? "Submitting place..." : "Submit place"}
         </button>
       </div>
     </form>

@@ -1,12 +1,15 @@
 import Image from "next/image";
 import type { Place } from "@/lib/places";
+import { getPlaceImageUrl } from "@/lib/api";
 
 export function PlaceCard({ place }: { place: Place }) {
+  const imageSrc = getPlaceImageUrl(place);
+
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/60 hover:shadow-md hover:shadow-primary/10">
       <div className="relative aspect-[4/3] overflow-hidden bg-surface">
         <Image
-          src={place.image}
+          src={imageSrc}
           alt={place.name}
           fill
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"

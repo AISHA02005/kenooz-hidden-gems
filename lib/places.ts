@@ -44,7 +44,11 @@ export type Place = {
   category: Category;
   governorate: string;
   description: string;
-  image: string;
+  image?: string;
+  image_key?: string;
+  image_url?: string;
+  status?: "pending" | "published";
+  created_at?: string;
 };
 
 export const PLACES: Place[] = [
@@ -56,6 +60,8 @@ export const PLACES: Place[] = [
     description:
       "A 13th-century mudbrick citadel rising above the palm groves of Siwa Oasis, best visited at sunset.",
     image: "/places/siwa-shali.png",
+    image_url: "/uploads/siwa-shali.png",
+    status: "published",
   },
   {
     id: "blue-hole",
@@ -65,6 +71,8 @@ export const PLACES: Place[] = [
     description:
       "Red mountains meet crystal reef waters north of Dahab, a calm spot for snorkeling away from the crowds.",
     image: "/places/blue-hole-dahab.png",
+    image_url: "/uploads/blue-hole-dahab.png",
+    status: "published",
   },
   {
     id: "el-fishawy",
@@ -74,6 +82,8 @@ export const PLACES: Place[] = [
     description:
       "A centuries-old café tucked inside Khan el-Khalili, known for its mirrors, lanterns, and mint tea.",
     image: "/places/el-fishawy.png",
+    image_url: "/uploads/el-fishawy.png",
+    status: "published",
   },
   {
     id: "white-desert",
@@ -83,6 +93,8 @@ export const PLACES: Place[] = [
     description:
       "Wind-carved chalk formations near Farafra that glow orange at dusk and silver under the stars.",
     image: "/places/white-desert.png",
+    image_url: "/uploads/white-desert.png",
+    status: "published",
   },
   {
     id: "tuna-el-gebel",
@@ -92,6 +104,8 @@ export const PLACES: Place[] = [
     description:
       "An ancient necropolis with the beautifully carved tomb of Petosiris, blending Egyptian and Greek art.",
     image: "/places/tuna-el-gebel.png",
+    image_url: "/uploads/tuna-el-gebel.png",
+    status: "published",
   },
   {
     id: "gharb-soheil",
@@ -101,5 +115,7 @@ export const PLACES: Place[] = [
     description:
       "A colorful Nubian village on the Nile's west bank with painted homes, local crafts, and warm hospitality.",
     image: "/places/gharb-soheil.png",
+    image_url: "/uploads/gharb-soheil.png",
+    status: "published",
   },
 ];
