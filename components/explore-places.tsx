@@ -27,22 +27,6 @@ export function ExplorePlaces({
   const [category, setCategory] = useState(ALL);
   const [governorate, setGovernorate] = useState(ALL);
 
-  // ── DIAGNOSTIC LOGGING (remove after debugging) ──────────────────────────
-  if (typeof window !== "undefined") {
-    console.log("[Explore] render", {
-      placesLength: places.length,
-      initialPlacesLength: initialPlaces.length,
-      query,
-      category,
-      governorate,
-      sampleCategory: places[0]?.category,
-      sampleCategoryBytes: places[0]
-        ? [...places[0].category].map((c) => c.codePointAt(0))
-        : [],
-    });
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
   const governoratesWithPlaces = useMemo(() => {
     return Array.from(new Set(places.map((p) => p.governorate))).sort();
   }, [places]);
@@ -50,34 +34,10 @@ export function ExplorePlaces({
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    // ── DIAGNOSTIC LOGGING ──────────────────────────────────────────────────
-    if (typeof window !== "undefined") {
-      console.log("[Explore] useMemo computing results", {
-        placesLength: places.length,
-        q,
-        category,
-        governorate,
-      });
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     return places.filter((place) => {
       const nameMatch = !q || place.name.toLowerCase().includes(q);
       const catMatch = category === ALL || place.category === category;
       const govMatch = governorate === ALL || place.governorate === governorate;
-
-      // ── DIAGNOSTIC LOGGING (logs first 2 places per filter run) ──────────
-      if (typeof window !== "undefined" && places.indexOf(place) < 2) {
-        console.log("[Explore] filtering place", {
-          name: place.name,
-          category: place.category,
-          governorate: place.governorate,
-          nameMatch,
-          catMatch,
-          govMatch,
-        });
-      }
-      // ───────────────────────────────────────────────────────────────────────
 
       return nameMatch && catMatch && govMatch;
     });
@@ -141,7 +101,6 @@ export function ExplorePlaces({
             type="search"
             value={query}
             onChange={(e) => {
-              console.log("[Explore] search onChange →", JSON.stringify(e.target.value));
               setQuery(e.target.value);
             }}
             placeholder="e.g. White Desert"
@@ -156,7 +115,6 @@ export function ExplorePlaces({
             id="category"
             value={category}
             onChange={(e) => {
-              console.log("[Explore] category onChange →", JSON.stringify(e.target.value));
               setCategory(e.target.value);
             }}
             className={fieldStyles}
@@ -177,7 +135,6 @@ export function ExplorePlaces({
             id="governorate"
             value={governorate}
             onChange={(e) => {
-              console.log("[Explore] governorate onChange →", JSON.stringify(e.target.value));
               setGovernorate(e.target.value);
             }}
             className={fieldStyles}

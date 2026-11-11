@@ -1,8 +1,8 @@
 import os
-import uuid
-from werkzeug.utils import secure_filename
-from werkzeug.datastructures import FileStorage
+
 from PIL import Image as PILImage
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
 
 from app.constants import (
     ALLOWED_EXTENSIONS,
@@ -64,7 +64,7 @@ def validate_place_submission(
     if not governorate:
         errors["governorate"] = "Governorate is required."
     elif governorate not in VALID_GOVERNORATES:
-        errors["governorate"] = f"Invalid Egyptian governorate. Must be one of the 27 official governorates."
+        errors["governorate"] = "Invalid Egyptian governorate. Must be one of the 27 official governorates."
     else:
         sanitized["governorate"] = governorate
 
@@ -105,17 +105,6 @@ def validate_place_submission(
                     errors["image"] = "The file uploaded is corrupted or not a valid image."
 
     return (len(errors) == 0, sanitized, errors)
-
-
-def save_image_file(file: FileStorage, upload_folder: str) -> str:
-    """Save the uploaded file with a unique secure filename and return image_key."""
-    os.makedirs(upload_folder, exist_ok=True)
-    original_filename = secure_filename(file.filename or "image.png")
-    ext = original_filename.rsplit(".", 1)[1].lower() if "." in original_filename else "png"
-    unique_filename = f"{uuid.uuid4().hex}.{ext}"
-    destination_path = os.path.join(upload_folder, unique_filename)
-    file.save(destination_path)
-    return unique_filename
 
 
 def create_place(data: dict, image_key: str) -> Place:

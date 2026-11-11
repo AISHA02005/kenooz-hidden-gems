@@ -5,6 +5,10 @@ const backendUrl =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://127.0.0.1:5000";
 
+// Only needed when the backend runs with IMAGE_DELIVERY=presigned
+// (images then come from presigned S3 URLs instead of /uploads/...).
+const s3ImageHostname = process.env.S3_IMAGE_HOSTNAME;
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
@@ -32,6 +36,15 @@ const nextConfig: NextConfig = {
         port: "5000",
         pathname: "/uploads/**",
       },
+      ...(s3ImageHostname
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: s3ImageHostname,
+              pathname: "/**",
+            },
+          ]
+        : []),
     ],
   },
   async headers() {

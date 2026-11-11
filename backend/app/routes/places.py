@@ -1,12 +1,18 @@
 from flask import Blueprint, current_app, jsonify, request
 
+from app.errors import (
+    DB_UNAVAILABLE_MESSAGE,
+    SUBMISSION_FAILED_MESSAGE,
+    is_db_unavailable,
+)
+from app.extensions import db
 from app.services.place_service import (
     create_place,
     get_published_place_by_id,
     get_published_places,
-    save_image_file,
     validate_place_submission,
 )
+from app.storage import StorageError, get_storage
 
 places_bp = Blueprint("places", __name__)
 
@@ -65,6 +71,10 @@ def submit_place():
       - image: required image file (JPG, PNG up to 5 MB)
 
     Returns 201 Created with pending place record.
+
+    Consistency: the image is stored first; if the database write then fails,
+    the stored image is deleted so no orphaned object/file remains. If the
+    image cannot be stored, no database row is created.
     """
     is_valid, sanitized_data, errors = validate_place_submission(
         request.form, request.files
@@ -81,29 +91,41 @@ def submit_place():
             400,
         )
 
-    image_file = request.files["image"]
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
+    storage = get_storage()
 
+    # 1) Store the image
     try:
-        image_key = save_image_file(image_file, upload_folder)
-        place = create_place(sanitized_data, image_key)
+        image_key = storage.save(request.files["image"])
+    except StorageError:
+        current_app.logger.exception("Image storage failed during place submission")
+        return jsonify({"error": SUBMISSION_FAILED_MESSAGE}), 500
 
-        return (
-            jsonify(
-                {
-                    "message": "Place submitted for review",
-                    "place": place.to_dict(),
-                }
-            ),
-            201,
-        )
+    # 2) Save the database record; undo the image if this fails
+    try:
+        place = create_place(sanitized_data, image_key)
     except Exception as exc:
+        db.session.rollback()
+        if not storage.delete(image_key):
+            current_app.logger.error(
+                "Orphaned image left in %s storage after failed DB write: %s",
+                storage.name,
+                image_key,
+            )
         current_app.logger.exception("Failed to save place submission: %s", exc)
-        return (
-            jsonify(
-                {
-                    "error": "Failed to save place submission. Please try again.",
-                }
-            ),
-            500,
-        )
+        if is_db_unavailable(exc):
+            return (
+                jsonify({"error": DB_UNAVAILABLE_MESSAGE, "message": DB_UNAVAILABLE_MESSAGE}),
+                503,
+            )
+        return jsonify({"error": SUBMISSION_FAILED_MESSAGE}), 500
+
+    # The place is committed; never delete its image after this point.
+    return (
+        jsonify(
+            {
+                "message": "Place submitted for review",
+                "place": place.to_dict(),
+            }
+        ),
+        201,
+    )
