@@ -1,12 +1,17 @@
+import logging
 import os
+
 from flask import Flask, jsonify
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
-from app.config import config_by_name
-from app.extensions import cors, db
+from app.config import ConfigurationError, config_by_name
+from app.errors import DB_UNAVAILABLE_MESSAGE, is_db_unavailable
+from app.extensions import cors, db, migrate
 from app.routes.health import health_bp
 from app.routes.places import places_bp
 from app.routes.uploads import uploads_bp
+from app.storage import init_storage
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -14,18 +19,29 @@ def create_app(config_name: str | None = None) -> Flask:
     if config_name is None:
         config_name = os.environ.get("FLASK_CONFIG", "development")
 
-    config_class = config_by_name.get(config_name, config_by_name["development"])
+    config_class = config_by_name.get(config_name)
+    if config_class is None:
+        raise ConfigurationError(
+            f"Unknown FLASK_CONFIG '{config_name}'. "
+            f"Valid values: {', '.join(sorted(config_by_name))}."
+        )
+    # Fails fast on unsafe production settings (weak secret, SQLite, missing bucket...)
+    config_class.validate()
 
     app = Flask(__name__)
     app.config.from_object(config_class)
+    configure_logging(app)
 
-    # Ensure uploads directory exists
-    upload_folder = app.config.get("UPLOAD_FOLDER")
-    if upload_folder:
-        os.makedirs(upload_folder, exist_ok=True)
+    # Image storage (local filesystem or Amazon S3)
+    init_storage(app)
+    if app.config["STORAGE_BACKEND"] == "local":
+        upload_folder = app.config.get("UPLOAD_FOLDER")
+        if upload_folder:
+            os.makedirs(upload_folder, exist_ok=True)
 
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
     cors.init_app(
         app,
         resources={
@@ -42,11 +58,18 @@ def create_app(config_name: str | None = None) -> Flask:
     # Register global JSON error handlers
     register_error_handlers(app)
 
-    # Auto-create tables for local development and testing
-    with app.app_context():
-        db.create_all()
+    # Auto-create tables for local development and testing only.
+    # Production schema is managed with Flask-Migrate ("flask db upgrade").
+    if app.config.get("AUTO_CREATE_TABLES"):
+        with app.app_context():
+            db.create_all()
 
     return app
+
+
+def configure_logging(app: Flask) -> None:
+    level = getattr(logging, str(app.config.get("LOG_LEVEL", "INFO")).upper(), logging.INFO)
+    app.logger.setLevel(level)
 
 
 def register_error_handlers(app: Flask) -> None:
@@ -72,6 +95,26 @@ def register_error_handlers(app: Flask) -> None:
                 }
             ),
             413,
+        )
+
+    @app.errorhandler(SQLAlchemyError)
+    def handle_database_error(err):
+        """Database failures never leak internals; connection problems return 503."""
+        db.session.rollback()
+        app.logger.error("Database error: %s", err, exc_info=err)
+        if is_db_unavailable(err):
+            return (
+                jsonify({"error": DB_UNAVAILABLE_MESSAGE, "message": DB_UNAVAILABLE_MESSAGE}),
+                503,
+            )
+        return (
+            jsonify(
+                {
+                    "error": "Internal server error",
+                    "message": "An unexpected error occurred.",
+                }
+            ),
+            500,
         )
 
     @app.errorhandler(500)

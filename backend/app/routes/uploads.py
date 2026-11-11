@@ -1,5 +1,6 @@
-import os
-from flask import Blueprint, current_app, jsonify, send_from_directory
+from flask import Blueprint, current_app, jsonify
+
+from app.storage import StorageError, StorageNotFoundError, get_storage
 
 uploads_bp = Blueprint("uploads", __name__)
 
@@ -7,13 +8,15 @@ uploads_bp = Blueprint("uploads", __name__)
 @uploads_bp.route("/uploads/<path:filename>", methods=["GET"])
 def serve_upload(filename: str):
     """
-    Serve uploaded static media files during local development.
-    In production with AWS, images will be served directly from S3/CloudFront.
+    Serve a place image by key.
+    - local backend: file from the uploads folder (local development)
+    - s3 backend: object read from the PRIVATE bucket (or a redirect to a
+      presigned URL when IMAGE_DELIVERY=presigned)
     """
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
-    file_path = os.path.join(upload_folder, filename)
-
-    if not os.path.isfile(file_path):
+    try:
+        return get_storage().serve(filename)
+    except StorageNotFoundError:
         return jsonify({"error": "File not found"}), 404
-
-    return send_from_directory(upload_folder, filename)
+    except StorageError:
+        current_app.logger.exception("Image storage error while serving %s", filename)
+        return jsonify({"error": "Image storage is temporarily unavailable"}), 502

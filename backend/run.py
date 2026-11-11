@@ -11,6 +11,12 @@ from app import create_app
 app = create_app()
 
 if __name__ == "__main__":
+    # Development server only. In production run: gunicorn run:app
     port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_DEBUG", "True").lower() in ("true", "1")
-    app.run(host="127.0.0.1", port=port, debug=debug)
+    host = os.environ.get("HOST", "127.0.0.1")
+    # Debug requires BOTH a debug-enabled config (development) and FLASK_DEBUG.
+    debug = bool(app.config.get("DEBUG")) and os.environ.get("FLASK_DEBUG", "True").lower() in (
+        "true",
+        "1",
+    )
+    app.run(host=host, port=port, debug=debug)
