@@ -29,11 +29,17 @@ class Place(db.Model):
     governorate = db.Column(db.String(50), nullable=False)
     description = db.Column(db.String(500), nullable=True)
     image_key = db.Column(db.String(255), nullable=False)
-    status = db.Column(db.String(20), nullable=False, default=PLACE_STATUS_PENDING)
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default=PLACE_STATUS_PENDING,
+        server_default=PLACE_STATUS_PENDING,  # CHANGED: database-level default
+    )
     created_at = db.Column(
         db.DateTime,
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
+        server_default=db.func.now(),  # CHANGED: database-level default
     )
 
     def to_dict(self):
